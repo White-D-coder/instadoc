@@ -9,64 +9,115 @@ function parseFormattedNumber(str: string): number {
   return parseInt(clean, 10) || 0;
 }
 
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&#064;/g, "@")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#x2022;/g, "•")
+    .replace(/&#8226;/g, "•");
+}
+
 async function scrapePublicInstagramProfile(handle: string) {
   const cleanHandle = handle.replace(/^@/, "").trim().toLowerCase();
   const url = `https://www.instagram.com/${cleanHandle}/`;
 
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-    next: { revalidate: 3600 },
-  });
+  const userAgents = [
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  ];
 
-  if (!res.ok) {
-    throw new Error(`Instagram returned status ${res.status}`);
+  let html = "";
+  let lastError = null;
+
+  for (const ua of userAgents) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": ua,
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+          "Sec-Fetch-User": "?1",
+          "Upgrade-Insecure-Requests": "1",
+        },
+        next: { revalidate: 3600 },
+      });
+
+      if (res.ok) {
+        html = await res.text();
+        if (html.length > 500) break;
+      }
+    } catch (e) {
+      lastError = e;
+    }
   }
 
-  const html = await res.text();
+  if (!html) {
+    throw lastError || new Error(`Could not fetch profile for ${cleanHandle}`);
+  }
 
-  // Extract og:image
+  // 1. Extract Profile Picture (og:image / twitter:image / meta content)
   const ogImageMatch =
-    html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) ||
-    html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i);
-  const rawImage = ogImageMatch ? ogImageMatch[1] || ogImageMatch[2] : null;
+    html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) ||
+    html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i) ||
+    html.match(/<link[^>]*rel=["']image_src["'][^>]*href=["']([^"']+)["']/i);
+
+  const rawImage = ogImageMatch ? ogImageMatch[1] : null;
   const avatarUrl = rawImage
-    ? `/api/instagram/avatar?url=${encodeURIComponent(rawImage.replace(/&amp;/g, "&"))}`
+    ? `/api/instagram/avatar?url=${encodeURIComponent(decodeHtmlEntities(rawImage))}`
     : null;
 
-  // Extract og:description for stats
+  // 2. Extract description (stats & bio)
   const descMatch =
-    html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]+)"/i) ||
-    html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i);
-  const desc = descMatch ? descMatch[1] : "";
+    html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i);
 
-  // Extract og:title for name
+  const rawDesc = descMatch ? decodeHtmlEntities(descMatch[1]) : "";
+
+  // 3. Extract title (name)
   const titleMatch =
-    html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i) ||
+    html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
     html.match(/<title>([^<]+)<\/title>/i);
-  const title = titleMatch ? titleMatch[1] : "";
 
-  const followersMatch = desc.match(/([0-9.,KMkm]+)\s+Followers/i);
-  const followingMatch = desc.match(/([0-9.,KMkm]+)\s+Following/i);
-  const postsMatch = desc.match(/([0-9.,KMkm]+)\s+Posts/i);
+  const rawTitle = titleMatch ? decodeHtmlEntities(titleMatch[1]) : "";
 
-  const nameMatch = title.match(/^([^(•]+)/);
-  const name = nameMatch
-    ? nameMatch[1].replace(/&#064;.*/, "").replace(/&amp;/g, "&").trim()
-    : cleanHandle;
+  // Extract Stats
+  const followersMatch = rawDesc.match(/([0-9.,KMkm]+)\s+Followers/i);
+  const followingMatch = rawDesc.match(/([0-9.,KMkm]+)\s+Following/i);
+  const postsMatch = rawDesc.match(/([0-9.,KMkm]+)\s+Posts/i);
+
+  // Extract Name
+  const nameMatch = rawTitle.match(/^([^(•|]+)/);
+  let name = nameMatch ? nameMatch[1].replace(/@.*/, "").trim() : cleanHandle;
+  if (!name || name.toLowerCase() === "instagram") {
+    name = cleanHandle;
+  }
+
+  // Extract Bio if present in meta description (e.g. on Instagram: "I build stuff")
+  let bio = "";
+  const bioMatch = rawDesc.match(/on Instagram:\s*["“]([\s\S]*?)["”]$/i);
+  if (bioMatch && bioMatch[1]) {
+    bio = bioMatch[1].trim();
+  }
 
   return {
     handle: cleanHandle,
-    name: name || cleanHandle,
+    name,
     avatarUrl,
     followers: followersMatch ? parseFormattedNumber(followersMatch[1]) : 0,
     following: followingMatch ? parseFormattedNumber(followingMatch[1]) : 0,
     posts: postsMatch ? parseFormattedNumber(postsMatch[1]) : 0,
+    biography: bio,
   };
 }
 
@@ -82,7 +133,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1. If Meta Access Token is available, attempt official Business Discovery
+    // 1. Meta Graph API if configured
     if (process.env.META_ACCESS_TOKEN) {
       try {
         const metaProfile = await fetchBusinessDiscovery(
@@ -108,26 +159,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Direct public metadata extraction
+    // 2. Direct public scraper
     const publicProfile = await scrapePublicInstagramProfile(handle);
     return Response.json({ success: true, profile: publicProfile });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("Profile extraction error:", errorMsg);
-    return new Response(
-      JSON.stringify({
-        error: errorMsg,
-        profile: {
-          handle: handle.replace(/^@/, ""),
-          name: handle.replace(/^@/, ""),
-          avatarUrl: null,
-          followers: 0,
-          following: 0,
-          posts: 0,
-        },
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    const cleanHandle = handle.replace(/^@/, "").trim();
+    return Response.json({
+      success: false,
+      error: errorMsg,
+      profile: {
+        handle: cleanHandle,
+        name: cleanHandle.charAt(0).toUpperCase() + cleanHandle.slice(1),
+        avatarUrl: null,
+        followers: 0,
+        following: 0,
+        posts: 0,
+        biography: "",
+      },
+    });
   }
 }
 

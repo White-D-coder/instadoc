@@ -2,12 +2,20 @@ import { NextRequest } from "next/server";
 
 interface IntakeData {
   handle: string;
-  accountType: string;
+  accountTypes?: string[];
+  businessStage?: string;
   targetAudience: string;
-  primaryGoal: string;
+  primaryGoals?: string[];
   currentBio: string;
-  currentStruggle: string;
+  currentStruggles?: string[];
   contentFormats: string[];
+  metaMetrics?: {
+    followers?: number;
+    following?: number;
+    posts?: number;
+    name?: string;
+    avatarUrl?: string | null;
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -39,6 +47,7 @@ function runMinimalAuditEngine(data: IntakeData) {
   const bio = data.currentBio || "";
   const audience = data.targetAudience || "your market";
   const formats = data.contentFormats || [];
+  const struggles = data.currentStruggles || [];
 
   const handleLength = handle.length;
   const hasSpamNumbers = /\d{3,}/.test(handle);
@@ -51,26 +60,30 @@ function runMinimalAuditEngine(data: IntakeData) {
   if (bio.length >= 60 && bio.length <= 145) bioScore += 20;
   else if (bio.length < 30) bioScore -= 20;
   if (bio.split("\n").length >= 2) bioScore += 10;
+  if (struggles.includes("bio_conversion")) bioScore -= 10;
   bioScore = Math.max(10, Math.min(98, bioScore));
 
   let ctaScore = 40;
-  if (/(link|shop|dm|book|free|download|click|tap)/i.test(bio)) ctaScore += 35;
+  if (/(link|shop|dm|book|free|download|click|tap|join|apply)/i.test(bio)) ctaScore += 35;
+  if (struggles.includes("not_buying")) ctaScore -= 10;
   ctaScore = Math.max(10, Math.min(98, ctaScore));
 
   let positionScore = 65;
   if (audience.length > 10) positionScore += 15;
+  if (struggles.includes("positioning")) positionScore -= 15;
   positionScore = Math.max(10, Math.min(98, positionScore));
 
   let contentScore = 50;
   if (formats.includes("Reels")) contentScore += 25;
   if (formats.includes("Carousels")) contentScore += 15;
+  if (struggles.includes("declining_reach")) contentScore -= 10;
   contentScore = Math.max(10, Math.min(98, contentScore));
 
   const overallScore = Math.round(
     seoScore * 0.15 + bioScore * 0.3 + ctaScore * 0.2 + positionScore * 0.2 + contentScore * 0.15
   );
 
-  const formattedName = handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : "Brand";
+  const formattedName = data.metaMetrics?.name || (handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : "Brand");
 
   return {
     overallScore,
@@ -117,12 +130,12 @@ function runMinimalAuditEngine(data: IntakeData) {
       {
         label: "Conversion",
         style: "conversion",
-        text: `Engineered for ${audience}\nTrusted by 10,000+ worldwide\nShop collection below`,
+        text: `Engineered for ${audience}\nTrusted by high-intent clients\nTap below to get started`,
       },
       {
         label: "Authority",
         style: "authority",
-        text: `${formattedName} | ${audience}\nIndustry-leading quality & performance\nOfficial links below`,
+        text: `${formattedName} | ${audience}\nIndustry-leading quality & performance\nOfficial link below`,
       },
       {
         label: "Minimalist",
@@ -161,12 +174,13 @@ async function callGemini(data: IntakeData, apiKey: string) {
 DO NOT use emojis anywhere in the response. Keep all text ultra-concise, professional, and actionable.
 
 Handle: @${data.handle}
-Account Type: ${data.accountType}
+Account Types: ${data.accountTypes?.join(", ") || "General"}
+Business Stage: ${data.businessStage || "Scaling"}
 Audience: ${data.targetAudience}
-Goal: ${data.primaryGoal}
-Bio: "${data.currentBio}"
-Struggle: ${data.currentStruggle}
-Formats: ${data.contentFormats.join(", ")}
+Primary Goals: ${data.primaryGoals?.join(", ") || "Growth"}
+Current Bio: "${data.currentBio}"
+Struggles: ${data.currentStruggles?.join(", ") || "Conversion"}
+Active Formats: ${data.contentFormats.join(", ")}
 
 Respond with strictly valid JSON matching this schema:
 {

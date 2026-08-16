@@ -10,11 +10,12 @@ import Footer from "@/components/Footer";
 
 export interface IntakeData {
   handle: string;
-  accountType: string;
+  accountTypes: string[];
+  businessStage: string;
   targetAudience: string;
-  primaryGoal: string;
+  primaryGoals: string[];
   currentBio: string;
-  currentStruggle: string;
+  currentStruggles: string[];
   contentFormats: string[];
   metaMetrics?: {
     followers?: number;
@@ -22,6 +23,7 @@ export interface IntakeData {
     posts?: number;
     name?: string;
     avatarUrl?: string | null;
+    biography?: string;
   };
 }
 
@@ -63,11 +65,12 @@ export default function HomePage() {
   const [view, setView] = useState<AppView>("landing");
   const [intakeData, setIntakeData] = useState<IntakeData>({
     handle: "",
-    accountType: "",
+    accountTypes: [],
+    businessStage: "",
     targetAudience: "",
-    primaryGoal: "",
+    primaryGoals: [],
     currentBio: "",
-    currentStruggle: "",
+    currentStruggles: [],
     contentFormats: [],
   });
   const [results, setResults] = useState<AnalysisResult | null>(null);
@@ -77,7 +80,7 @@ export default function HomePage() {
     setIntakeData((prev) => ({ ...prev, handle: cleanHandle }));
     setView("intake");
 
-    // Fetch live profile details (avatar, followers, following, posts)
+    // Fetch live profile details (avatar, followers, following, posts, bio)
     try {
       const res = await fetch(`/api/instagram/profile?handle=${encodeURIComponent(cleanHandle)}`);
       if (res.ok) {
@@ -91,6 +94,7 @@ export default function HomePage() {
               posts: json.profile.posts,
               name: json.profile.name,
               avatarUrl: json.profile.avatarUrl,
+              biography: json.profile.biography,
             },
             currentBio: prev.currentBio || json.profile.biography || prev.currentBio,
           }));
@@ -106,7 +110,6 @@ export default function HomePage() {
     setView("analyzing");
 
     try {
-      // Ensure we have profile data if not already fetched
       let latestData = { ...data };
       if (!latestData.metaMetrics?.avatarUrl) {
         try {
@@ -120,6 +123,7 @@ export default function HomePage() {
                 posts: profileJson.profile.posts,
                 name: profileJson.profile.name,
                 avatarUrl: profileJson.profile.avatarUrl,
+                biography: profileJson.profile.biography,
               };
               setIntakeData(latestData);
             }
@@ -153,11 +157,12 @@ export default function HomePage() {
     setResults(null);
     setIntakeData({
       handle: "",
-      accountType: "",
+      accountTypes: [],
+      businessStage: "",
       targetAudience: "",
-      primaryGoal: "",
+      primaryGoals: [],
       currentBio: "",
-      currentStruggle: "",
+      currentStruggles: [],
       contentFormats: [],
     });
   }, []);
@@ -195,7 +200,7 @@ export default function HomePage() {
 
 /* ---------- Minimalist Heuristic Fallback Analysis ---------- */
 function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
-  const bio = data.currentBio || "";
+  const bio = data.currentBio || data.metaMetrics?.biography || "";
   const handle = (data.handle || "").toLowerCase().replace(/^@/, "");
 
   let bioScore = 45;
@@ -212,7 +217,7 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
   handleScore = Math.min(98, Math.max(10, handleScore));
 
   let ctaScore = 40;
-  const ctaKeywords = ["link", "dm", "book", "shop", "buy", "free", "download", "click", "tap"];
+  const ctaKeywords = ["link", "dm", "book", "shop", "buy", "free", "download", "click", "tap", "join", "apply"];
   ctaKeywords.forEach((kw) => {
     if (bio.toLowerCase().includes(kw)) ctaScore += 10;
   });
@@ -220,11 +225,12 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
 
   let positionScore = 65;
   if (data.targetAudience && data.targetAudience.length > 10) positionScore += 15;
+  if (data.accountTypes && data.accountTypes.length > 0) positionScore += 10;
   positionScore = Math.min(98, Math.max(10, positionScore));
 
   let contentScore = 50;
-  if (data.contentFormats.includes("Reels")) contentScore += 25;
-  if (data.contentFormats.includes("Carousels")) contentScore += 15;
+  if (data.contentFormats?.includes("Reels")) contentScore += 25;
+  if (data.contentFormats?.includes("Carousels")) contentScore += 15;
   contentScore = Math.min(98, Math.max(10, contentScore));
 
   const overallScore = Math.round(
@@ -249,7 +255,7 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
         name: "Bio Value Proposition",
         icon: "",
         score: bioScore,
-        feedback: bio.length > 0 ? "Bio provides context but lacks concise hook clarity." : "Empty bio causes immediate visitor bounce.",
+        feedback: bio.length > 0 ? "Bio structure analyzed for mobile scanability and hook clarity." : "Empty bio causes immediate visitor bounce.",
         suggestion: "Implement the structured 3-line formula below.",
       },
       {
@@ -263,7 +269,7 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
         name: "Positioning",
         icon: "",
         score: positionScore,
-        feedback: `Defined for ${data.targetAudience || "target audience"}.`,
+        feedback: `Calibrated for ${data.targetAudience || "target audience"}.`,
         suggestion: "State distinct differentiator in first 3 seconds.",
       },
       {
@@ -278,17 +284,17 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
       {
         label: "Conversion",
         style: "conversion",
-        text: `Engineered for ${data.targetAudience || "results"}\nTrusted by 10,000+ worldwide\nShop collection below`,
+        text: `Engineered for ${data.targetAudience || "results"}\nProven system for high-intent clients\nTap below to start`,
       },
       {
         label: "Authority",
         style: "authority",
-        text: `${formattedName} | ${data.targetAudience || "Official"}\nFeatured in leading media\nOfficial link below`,
+        text: `${formattedName} | ${data.targetAudience || "Official"}\nIndustry leader & specialist\nExplore official resources below`,
       },
       {
         label: "Minimalist",
         style: "minimal",
-        text: `${data.targetAudience || "Studio"}\n${bio.split("\n")[0] || "Elevating standards daily."}\nExplore links`,
+        text: `${data.targetAudience || "Studio"}\n${bio.split("\n")[0] || "Elevating standards daily."}\nView collection`,
       },
     ],
     actionPlan: [

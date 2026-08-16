@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { IntakeData } from "@/app/page";
 
 interface DiagnosticIntakeProps {
@@ -10,28 +10,42 @@ interface DiagnosticIntakeProps {
 }
 
 const ACCOUNT_TYPES = [
-  { value: "personal", label: "Personal Brand" },
-  { value: "business", label: "E-commerce & Brands" },
-  { value: "creator", label: "Content Creator" },
-  { value: "agency", label: "Agency & B2B" },
-  { value: "local", label: "Local Business" },
-  { value: "portfolio", label: "Portfolio & Creative" },
+  { value: "coach", label: "Coach / Consultant" },
+  { value: "service_provider", label: "Service provider / Freelancer" },
+  { value: "course_creator", label: "Course creator / Educator" },
+  { value: "creator_no_offer", label: "Creator / publisher (no offer yet)" },
+  { value: "local_business", label: "Local / physical business" },
+  { value: "ecommerce", label: "E-commerce / product brand" },
+  { value: "adult_creator", label: "OnlyFans / Adult creator" },
+  { value: "artist_entertainment", label: "Artist / Musician / Entertainment" },
+  { value: "agency_b2b", label: "Agency / B2B" },
+  { value: "tech_saas", label: "Tech / SaaS" },
+  { value: "other", label: "Other" },
+];
+
+const BUSINESS_STAGES = [
+  { value: "no_revenue", label: "Not making money from my audience yet" },
+  { value: "inconsistent", label: "First sales, but nothing consistent" },
+  { value: "scaling", label: "Steady clients — I want to scale" },
+  { value: "established", label: "Established 6-7 figure business" },
 ];
 
 const GOALS = [
   { value: "followers", label: "Follower Growth" },
-  { value: "engagement", label: "Engagement & Saves" },
-  { value: "sales", label: "Sales & Leads" },
-  { value: "brand", label: "Brand Authority" },
-  { value: "awareness", label: "Reach & Discovery" },
+  { value: "leads", label: "Inbound Leads & DMs" },
+  { value: "sales", label: "Product / Service Sales" },
+  { value: "brand_authority", label: "Brand Authority & PR" },
+  { value: "engagement", label: "High Engagement & Saves" },
+  { value: "monetization", label: "Audience Monetization" },
 ];
 
 const STRUGGLES = [
-  { value: "bio", label: "Low Bio Conversion" },
-  { value: "reach", label: "Declining Reach" },
-  { value: "engagement", label: "Low Engagement" },
-  { value: "positioning", label: "Unclear Positioning" },
-  { value: "consistency", label: "Content Execution" },
+  { value: "bio_conversion", label: "Low Bio Conversion / High Bounce" },
+  { value: "declining_reach", label: "Declining Reach / Algorithm Drop" },
+  { value: "not_buying", label: "Followers Not Buying / Inactive Leads" },
+  { value: "positioning", label: "Unclear Positioning / Niche Fog" },
+  { value: "low_engagement", label: "Low Likes, Comments & Saves" },
+  { value: "consistency", label: "Inconsistent Content Creation" },
 ];
 
 const CONTENT_FORMATS = [
@@ -40,6 +54,7 @@ const CONTENT_FORMATS = [
   { value: "Stories", label: "Stories" },
   { value: "Static Posts", label: "Static Posts" },
   { value: "Highlights", label: "Highlights" },
+  { value: "Broadcast Channel", label: "Broadcast Channel" },
 ];
 
 export default function DiagnosticIntake({
@@ -50,7 +65,25 @@ export default function DiagnosticIntake({
   const [step, setStep] = useState(1);
   const [data, setData] = useState<IntakeData>(initialData);
 
-  const totalSteps = 4;
+  useEffect(() => {
+    setData((prev) => ({
+      ...prev,
+      metaMetrics: initialData.metaMetrics || prev.metaMetrics,
+      currentBio: prev.currentBio || initialData.currentBio || initialData.metaMetrics?.biography || "",
+    }));
+  }, [initialData]);
+
+  const totalSteps = 5;
+
+  const toggleArrayItem = useCallback((field: "accountTypes" | "primaryGoals" | "currentStruggles" | "contentFormats", item: string) => {
+    setData((prev) => {
+      const currentList = prev[field] || [];
+      const updated = currentList.includes(item)
+        ? currentList.filter((x) => x !== item)
+        : [...currentList, item];
+      return { ...prev, [field]: updated };
+    });
+  }, []);
 
   const updateField = useCallback(
     <K extends keyof IntakeData>(field: K, value: IntakeData[K]) => {
@@ -59,24 +92,20 @@ export default function DiagnosticIntake({
     []
   );
 
-  const toggleContentFormat = useCallback((format: string) => {
-    setData((prev) => ({
-      ...prev,
-      contentFormats: prev.contentFormats.includes(format)
-        ? prev.contentFormats.filter((f) => f !== format)
-        : [...prev.contentFormats, format],
-    }));
-  }, []);
-
   const canProceed = () => {
     switch (step) {
       case 1:
-        return data.accountType !== "";
+        return (data.accountTypes && data.accountTypes.length > 0);
       case 2:
-        return data.targetAudience.trim().length > 0;
+        return !!data.businessStage;
       case 3:
-        return data.primaryGoal !== "";
+        return data.targetAudience.trim().length > 0;
       case 4:
+        return (
+          (data.primaryGoals && data.primaryGoals.length > 0) &&
+          (data.currentStruggles && data.currentStruggles.length > 0)
+        );
+      case 5:
         return true;
       default:
         return false;
@@ -99,10 +128,17 @@ export default function DiagnosticIntake({
     }
   };
 
+  const formatFollowers = (num?: number) => {
+    if (!num) return "";
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+    return num.toString();
+  };
+
   return (
     <main>
-      <section className="section" style={{ paddingTop: "var(--space-12)" }}>
-        <div className="container" style={{ maxWidth: "580px" }}>
+      <section className="section" style={{ paddingTop: "var(--space-10)" }}>
+        <div className="container" style={{ maxWidth: "620px" }}>
           {/* Stepper */}
           <div className="stepper">
             {Array.from({ length: totalSteps }, (_, i) => (
@@ -127,51 +163,151 @@ export default function DiagnosticIntake({
             ))}
           </div>
 
+          {/* Profile Badge */}
           <div
             style={{
-              textAlign: "center",
-              marginBottom: "var(--space-2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "var(--space-2)",
+              marginBottom: "var(--space-4)",
             }}
           >
-            <span
-              className="hero-badge"
-              style={{ fontSize: "0.75rem" }}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "var(--space-2)",
+                padding: "4px 12px",
+                background: "var(--color-bg-subtle)",
+                borderRadius: "var(--radius-full)",
+                border: "1px solid var(--color-border)",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: "var(--color-text-primary)",
+              }}
             >
-              Auditing @{data.handle}
-            </span>
+              {data.metaMetrics?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={data.metaMetrics.avatarUrl}
+                  alt={data.handle}
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    background: "var(--color-primary)",
+                    color: "white",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.6875rem",
+                  }}
+                >
+                  {data.handle.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span>@{data.handle}</span>
+              {data.metaMetrics?.followers ? (
+                <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>
+                  ({formatFollowers(data.metaMetrics.followers)} followers)
+                </span>
+              ) : null}
+            </div>
           </div>
 
-          {/* Step 1: Account Type */}
+          {/* Step 1: What are you? (Multi-select) */}
           {step === 1 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                Account Category
+                What are you?
               </h2>
               <p
                 className="section-subtitle"
-                style={{ textAlign: "center" }}
+                style={{ textAlign: "center", marginBottom: "var(--space-6)" }}
               >
-                Select your primary profile structure.
+                Select all categories that apply to your profile.
               </p>
               <div className="chip-group" style={{ justifyContent: "center" }}>
-                {ACCOUNT_TYPES.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    className={`chip${
-                      data.accountType === type.value ? " active" : ""
-                    }`}
-                    onClick={() => updateField("accountType", type.value)}
-                  >
-                    {type.label}
-                  </button>
-                ))}
+                {ACCOUNT_TYPES.map((type) => {
+                  const isSelected = data.accountTypes?.includes(type.value);
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      className={`chip${isSelected ? " active" : ""}`}
+                      onClick={() => toggleArrayItem("accountTypes", type.value)}
+                    >
+                      {type.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Step 2: Target Audience + Bio */}
+          {/* Step 2: Where's the business right now? */}
           {step === 2 && (
+            <div className="animate-fade-in-up">
+              <h2 className="section-title" style={{ textAlign: "center" }}>
+                Where is the business right now?
+              </h2>
+              <p
+                className="section-subtitle"
+                style={{ textAlign: "center", marginBottom: "var(--space-6)" }}
+              >
+                Select your current revenue & monetization stage.
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--space-3)",
+                }}
+              >
+                {BUSINESS_STAGES.map((stage) => {
+                  const isSelected = data.businessStage === stage.value;
+                  return (
+                    <button
+                      key={stage.value}
+                      type="button"
+                      style={{
+                        padding: "var(--space-4) var(--space-5)",
+                        textAlign: "left",
+                        background: isSelected ? "var(--color-primary-light)" : "white",
+                        border: `1.5px solid ${
+                          isSelected ? "var(--color-primary)" : "var(--color-border)"
+                        }`,
+                        borderRadius: "var(--radius-md)",
+                        fontSize: "0.9375rem",
+                        fontWeight: isSelected ? 600 : 500,
+                        color: isSelected
+                          ? "var(--color-primary)"
+                          : "var(--color-text-primary)",
+                        cursor: "pointer",
+                        transition: "all var(--transition-fast)",
+                      }}
+                      onClick={() => updateField("businessStage", stage.value)}
+                    >
+                      {stage.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Target Audience + Bio */}
+          {step === 3 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
                 Target Audience & Bio
@@ -180,18 +316,18 @@ export default function DiagnosticIntake({
                 className="section-subtitle"
                 style={{ textAlign: "center" }}
               >
-                Specify who you serve and paste current bio.
+                Who do you serve and what is your current copy?
               </p>
 
               <div className="form-group">
                 <label className="form-label" htmlFor="target-audience">
-                  Target Audience
+                  Target Audience / Niche Ideal Customer
                 </label>
                 <input
                   id="target-audience"
                   className="form-input"
                   type="text"
-                  placeholder="e.g. Founders, athletes, designer brand shoppers"
+                  placeholder="e.g. B2B founders, fitness athletes, boutique shoppers"
                   value={data.targetAudience}
                   onChange={(e) =>
                     updateField("targetAudience", e.target.value)
@@ -203,13 +339,13 @@ export default function DiagnosticIntake({
                 <label className="form-label" htmlFor="current-bio">
                   Current Bio{" "}
                   <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>
-                    (optional)
+                    {data.currentBio ? "(auto-extracted from Instagram)" : "(optional)"}
                   </span>
                 </label>
                 <textarea
                   id="current-bio"
                   className="form-input form-textarea"
-                  placeholder="Paste existing bio here..."
+                  placeholder="Paste or review existing bio here..."
                   value={data.currentBio}
                   onChange={(e) => updateField("currentBio", e.target.value)}
                   rows={3}
@@ -218,88 +354,97 @@ export default function DiagnosticIntake({
             </div>
           )}
 
-          {/* Step 3: Goal + Struggle */}
-          {step === 3 && (
+          {/* Step 4: Primary Goals & Bottlenecks (Multi-select) */}
+          {step === 4 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                Primary Objective
+                Growth Goals
               </h2>
               <p
                 className="section-subtitle"
-                style={{ textAlign: "center" }}
+                style={{ textAlign: "center", marginBottom: "var(--space-4)" }}
               >
-                Select main growth focus.
+                Select all primary growth priorities.
               </p>
               <div
                 className="chip-group"
                 style={{ justifyContent: "center", marginBottom: "var(--space-6)" }}
               >
-                {GOALS.map((goal) => (
-                  <button
-                    key={goal.value}
-                    type="button"
-                    className={`chip${
-                      data.primaryGoal === goal.value ? " active" : ""
-                    }`}
-                    onClick={() => updateField("primaryGoal", goal.value)}
-                  >
-                    {goal.label}
-                  </button>
-                ))}
+                {GOALS.map((goal) => {
+                  const isSelected = data.primaryGoals?.includes(goal.value);
+                  return (
+                    <button
+                      key={goal.value}
+                      type="button"
+                      className={`chip${isSelected ? " active" : ""}`}
+                      onClick={() => toggleArrayItem("primaryGoals", goal.value)}
+                    >
+                      {goal.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <h3
                 className="section-title"
                 style={{
                   textAlign: "center",
-                  fontSize: "1rem",
+                  fontSize: "1.0625rem",
                   marginBottom: "var(--space-2)",
                 }}
               >
-                Primary Bottleneck
+                Primary Bottlenecks
               </h3>
+              <p
+                className="section-subtitle"
+                style={{ textAlign: "center", marginBottom: "var(--space-4)" }}
+              >
+                Select all issues you are facing.
+              </p>
               <div className="chip-group" style={{ justifyContent: "center" }}>
-                {STRUGGLES.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    className={`chip${
-                      data.currentStruggle === item.value ? " active" : ""
-                    }`}
-                    onClick={() => updateField("currentStruggle", item.value)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
+                {STRUGGLES.map((item) => {
+                  const isSelected = data.currentStruggles?.includes(item.value);
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      className={`chip${isSelected ? " active" : ""}`}
+                      onClick={() => toggleArrayItem("currentStruggles", item.value)}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Step 4: Content Formats */}
-          {step === 4 && (
+          {/* Step 5: Content Formats (Multi-select) */}
+          {step === 5 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                Active Formats
+                Active Distribution Formats
               </h2>
               <p
                 className="section-subtitle"
-                style={{ textAlign: "center" }}
+                style={{ textAlign: "center", marginBottom: "var(--space-6)" }}
               >
-                Select current distribution formats.
+                Select all formats you currently publish.
               </p>
               <div className="chip-group" style={{ justifyContent: "center" }}>
-                {CONTENT_FORMATS.map((format) => (
-                  <button
-                    key={format.value}
-                    type="button"
-                    className={`chip${
-                      data.contentFormats.includes(format.value) ? " active" : ""
-                    }`}
-                    onClick={() => toggleContentFormat(format.value)}
-                  >
-                    {format.label}
-                  </button>
-                ))}
+                {CONTENT_FORMATS.map((format) => {
+                  const isSelected = data.contentFormats?.includes(format.value);
+                  return (
+                    <button
+                      key={format.value}
+                      type="button"
+                      className={`chip${isSelected ? " active" : ""}`}
+                      onClick={() => toggleArrayItem("contentFormats", format.value)}
+                    >
+                      {format.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
