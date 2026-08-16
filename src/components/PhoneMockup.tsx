@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 interface PhoneMockupProps {
   handle: string;
   name: string;
   bio: string;
+  avatarUrl?: string | null;
   followers?: number;
   following?: number;
   posts?: number;
@@ -13,14 +16,17 @@ export default function PhoneMockup({
   handle,
   name,
   bio,
+  avatarUrl,
   followers,
   following,
   posts,
 }: PhoneMockupProps) {
+  const [imgError, setImgError] = useState(false);
+
   const formatNumber = (num?: number) => {
     if (num === undefined || num === null) return "—";
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
     return num.toString();
   };
 
@@ -39,27 +45,46 @@ export default function PhoneMockup({
 
       {/* Profile section */}
       <div className="phone-mockup-profile">
-        <div className="phone-mockup-avatar">
-          {handle.charAt(0).toUpperCase()}
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", marginBottom: "var(--space-3)" }}>
+          <div className="phone-mockup-avatar" style={{ overflow: "hidden", position: "relative", flexShrink: 0 }}>
+            {avatarUrl && !imgError ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={handle}
+                onError={() => setImgError(true)}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  borderRadius: "50%",
+                }}
+              />
+            ) : (
+              handle.charAt(0).toUpperCase()
+            )}
+          </div>
+
+          <div className="phone-mockup-stats" style={{ flex: 1, margin: 0, justifyContent: "space-around" }}>
+            <div className="phone-mockup-stat">
+              <div className="phone-mockup-stat-value">{formatNumber(posts)}</div>
+              <div className="phone-mockup-stat-label">Posts</div>
+            </div>
+            <div className="phone-mockup-stat">
+              <div className="phone-mockup-stat-value">{formatNumber(followers)}</div>
+              <div className="phone-mockup-stat-label">Followers</div>
+            </div>
+            <div className="phone-mockup-stat">
+              <div className="phone-mockup-stat-value">{formatNumber(following)}</div>
+              <div className="phone-mockup-stat-label">Following</div>
+            </div>
+          </div>
         </div>
 
-        <div className="phone-mockup-stats">
-          <div className="phone-mockup-stat">
-            <div className="phone-mockup-stat-value">{formatNumber(posts)}</div>
-            <div className="phone-mockup-stat-label">Posts</div>
-          </div>
-          <div className="phone-mockup-stat">
-            <div className="phone-mockup-stat-value">{formatNumber(followers)}</div>
-            <div className="phone-mockup-stat-label">Followers</div>
-          </div>
-          <div className="phone-mockup-stat">
-            <div className="phone-mockup-stat-value">{formatNumber(following)}</div>
-            <div className="phone-mockup-stat-label">Following</div>
-          </div>
+        <div className="phone-mockup-name">{name || handle}</div>
+        <div className="phone-mockup-bio" style={{ whiteSpace: "pre-line" }}>
+          {bio}
         </div>
-
-        <div className="phone-mockup-name">{name}</div>
-        <div className="phone-mockup-bio">{bio}</div>
 
         {/* CTA button mockup */}
         <div

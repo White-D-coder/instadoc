@@ -21,6 +21,7 @@ export interface IntakeData {
     following?: number;
     posts?: number;
     name?: string;
+    avatarUrl?: string | null;
   };
 }
 
@@ -71,9 +72,33 @@ export default function HomePage() {
   });
   const [results, setResults] = useState<AnalysisResult | null>(null);
 
-  const handleStartDiagnosis = useCallback((handle: string) => {
-    setIntakeData((prev) => ({ ...prev, handle }));
+  const handleStartDiagnosis = useCallback(async (handle: string) => {
+    const cleanHandle = handle.replace(/^@/, "").trim();
+    setIntakeData((prev) => ({ ...prev, handle: cleanHandle }));
     setView("intake");
+
+    // Fetch live profile details (avatar, followers, following, posts)
+    try {
+      const res = await fetch(`/api/instagram/profile?handle=${encodeURIComponent(cleanHandle)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.profile) {
+          setIntakeData((prev) => ({
+            ...prev,
+            metaMetrics: {
+              followers: json.profile.followers,
+              following: json.profile.following,
+              posts: json.profile.posts,
+              name: json.profile.name,
+              avatarUrl: json.profile.avatarUrl,
+            },
+            currentBio: prev.currentBio || json.profile.biography || prev.currentBio,
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn("Background profile fetch non-fatal error:", err);
+    }
   }, []);
 
   const handleIntakeComplete = useCallback(async (data: IntakeData) => {
@@ -81,10 +106,33 @@ export default function HomePage() {
     setView("analyzing");
 
     try {
+      // Ensure we have profile data if not already fetched
+      let latestData = { ...data };
+      if (!latestData.metaMetrics?.avatarUrl) {
+        try {
+          const profileRes = await fetch(`/api/instagram/profile?handle=${encodeURIComponent(data.handle)}`);
+          if (profileRes.ok) {
+            const profileJson = await profileRes.json();
+            if (profileJson.profile) {
+              latestData.metaMetrics = {
+                followers: profileJson.profile.followers,
+                following: profileJson.profile.following,
+                posts: profileJson.profile.posts,
+                name: profileJson.profile.name,
+                avatarUrl: profileJson.profile.avatarUrl,
+              };
+              setIntakeData(latestData);
+            }
+          }
+        } catch {
+          // Continue
+        }
+      }
+
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(latestData),
       });
 
       if (!res.ok) throw new Error("Analysis failed");
@@ -145,15 +193,14 @@ export default function HomePage() {
   );
 }
 
-/* ---------- Heuristic Fallback Analysis ---------- */
+/* ---------- Minimalist Heuristic Fallback Analysis ---------- */
 function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
   const bio = data.currentBio || "";
   const handle = (data.handle || "").toLowerCase().replace(/^@/, "");
 
   let bioScore = 45;
   if (bio.length > 20) bioScore += 10;
-  if (bio.length > 60 && bio.length <= 150) bioScore += 15;
-  if (bio.includes("🔗") || bio.includes("👇") || bio.includes("⬇")) bioScore += 10;
+  if (bio.length >= 60 && bio.length <= 150) bioScore += 15;
   if (bio.split("\n").length >= 2) bioScore += 10;
   if (bio.length === 0) bioScore = 15;
   bioScore = Math.min(98, Math.max(10, bioScore));
@@ -165,7 +212,7 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
   handleScore = Math.min(98, Math.max(10, handleScore));
 
   let ctaScore = 40;
-  const ctaKeywords = ["link", "dm", "book", "shop", "buy", "free", "download", "click", "tap", "👇", "⬇", "🔗"];
+  const ctaKeywords = ["link", "dm", "book", "shop", "buy", "free", "download", "click", "tap"];
   ctaKeywords.forEach((kw) => {
     if (bio.toLowerCase().includes(kw)) ctaScore += 10;
   });
@@ -184,78 +231,87 @@ function generateHeuristicAnalysis(data: IntakeData): AnalysisResult {
     bioScore * 0.3 + handleScore * 0.15 + ctaScore * 0.2 + positionScore * 0.2 + contentScore * 0.15
   );
 
+  const formattedName = data.metaMetrics?.name || (handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : "Brand");
+
   return {
     overallScore,
-    verdict: overallScore >= 75 ? "Strong Profile — Minor Tuning Needed" : "Needs Bio Surgery & Strategy Alignment",
-    verdictEmoji: overallScore >= 75 ? "🚀" : "🩺",
+    verdict: overallScore >= 75 ? "Optimal Baseline" : "Optimization Required",
+    verdictEmoji: "",
     pillars: [
       {
-        name: "SEO & Search Visibility",
-        icon: "🔍",
+        name: "SEO & Discoverability",
+        icon: "",
         score: handleScore,
-        feedback: `@${handle} is indexable. Optimize Name Field for search discoverability.`,
-        suggestion: `Update Name Field: "${handle.charAt(0).toUpperCase() + handle.slice(1)} | ${data.targetAudience?.slice(0, 20) || "Official Brand"}"`,
+        feedback: `Handle @${handle} evaluated. Optimize Name Field for search keywords.`,
+        suggestion: `Name Field: "${formattedName} | ${data.targetAudience?.slice(0, 20) || "Official"}"`,
       },
       {
         name: "Bio Value Proposition",
-        icon: "🎯",
+        icon: "",
         score: bioScore,
-        feedback: bio.length > 0 ? "Bio contains basic positioning but lacks a strong quantified hook." : "Empty bio causes high visitor bounce rate.",
-        suggestion: "Use the high-conversion bio formula in the lab below.",
+        feedback: bio.length > 0 ? "Bio provides context but lacks concise hook clarity." : "Empty bio causes immediate visitor bounce.",
+        suggestion: "Implement the structured 3-line formula below.",
       },
       {
-        name: "CTA & Conversion Funnel",
-        icon: "🔗",
+        name: "CTA & Conversion",
+        icon: "",
         score: ctaScore,
-        feedback: ctaScore >= 60 ? "Direct CTA detected." : "No explicit conversion CTA pointing to your link.",
-        suggestion: 'Add: "👇 Claim 15% off / Download Free Guide"',
+        feedback: ctaScore >= 60 ? "Direct call to action detected." : "No explicit directive pointing to primary link.",
+        suggestion: "Add direct directive to bio link.",
       },
       {
-        name: "Positioning & Differentiation",
-        icon: "🎨",
+        name: "Positioning",
+        icon: "",
         score: positionScore,
-        feedback: `Positioning defined for ${data.targetAudience || "your niche"}.`,
-        suggestion: "Clarify what makes your brand distinct within 3 seconds.",
+        feedback: `Defined for ${data.targetAudience || "target audience"}.`,
+        suggestion: "State distinct differentiator in first 3 seconds.",
       },
       {
-        name: "Content Strategy & Formats",
-        icon: "📈",
+        name: "Content Engine",
+        icon: "",
         score: contentScore,
-        feedback: "Format diversity drives algorithmic discovery.",
-        suggestion: "Maintain 3-4 Reels per week for non-follower discovery.",
+        feedback: "Format mix aligns with discovery algorithms.",
+        suggestion: "Maintain consistent Reels and Carousel schedule.",
       },
     ],
     bioSuggestions: [
       {
-        label: "High-Conversion (Recommended)",
+        label: "Conversion",
         style: "conversion",
-        text: `✨ Helping ${data.targetAudience || "you"} achieve results\n📈 10,000+ happy community members\n📦 Worldwide shipping & easy access\n👇 Explore links below`,
+        text: `Engineered for ${data.targetAudience || "results"}\nTrusted by 10,000+ worldwide\nShop collection below`,
       },
       {
-        label: "Authority & Social Proof",
+        label: "Authority",
         style: "authority",
-        text: `${handle.charAt(0).toUpperCase() + handle.slice(1)} Official | ${data.targetAudience || "Industry Leader"}\n🏆 Featured in top media & publications\n✦ Quality • Performance • Trust\n🔗 Official Website 👇`,
+        text: `${formattedName} | ${data.targetAudience || "Official"}\nFeatured in leading media\nOfficial link below`,
       },
       {
-        label: "Minimalist & Modern",
+        label: "Minimalist",
         style: "minimal",
-        text: `${data.targetAudience || "Brand Studio"}\n${bio.split("\n")[0] || "Elevating standards daily."}\n👇 Tap to shop`,
+        text: `${data.targetAudience || "Studio"}\n${bio.split("\n")[0] || "Elevating standards daily."}\nExplore links`,
       },
     ],
     actionPlan: [
       {
         priority: 1,
-        title: "Deploy High-Conversion Bio Structure",
-        description: "Adopt the 3-line Hook-Proof-CTA framework from the lab above.",
-        timeframe: "Immediate (5 mins)",
+        title: "Deploy 3-Line Value Bio",
+        description: "Replace bio with structured hook, proof, and single action directive.",
+        timeframe: "Immediate",
         category: "immediate",
       },
       {
         priority: 2,
-        title: "Optimize Link-in-Bio Target",
-        description: "Reduce link fatigue by pointing visitors to ONE single primary offer.",
-        timeframe: "Today",
-        category: "immediate",
+        title: "Align Name Field Keywords",
+        description: "Insert primary search phrase into bold profile Name Field for search indexing.",
+        timeframe: "This week",
+        category: "short-term",
+      },
+      {
+        priority: 3,
+        title: "Standardize Highlight Categories",
+        description: "Maintain 4 structured highlights: About, Proof, Best Sellers, and Contact.",
+        timeframe: "Within 30 days",
+        category: "long-term",
       },
     ],
   };

@@ -10,38 +10,36 @@ interface DiagnosticIntakeProps {
 }
 
 const ACCOUNT_TYPES = [
-  { value: "personal", label: "Personal Brand", emoji: "👤" },
-  { value: "business", label: "E-commerce / Business", emoji: "🏢" },
-  { value: "creator", label: "Content Creator", emoji: "🎬" },
-  { value: "agency", label: "Agency / B2B", emoji: "💼" },
-  { value: "local", label: "Local Business", emoji: "📍" },
-  { value: "portfolio", label: "Portfolio / Artist", emoji: "🎨" },
+  { value: "personal", label: "Personal Brand" },
+  { value: "business", label: "E-commerce & Brands" },
+  { value: "creator", label: "Content Creator" },
+  { value: "agency", label: "Agency & B2B" },
+  { value: "local", label: "Local Business" },
+  { value: "portfolio", label: "Portfolio & Creative" },
 ];
 
 const GOALS = [
-  { value: "followers", label: "Grow Followers", emoji: "📈" },
-  { value: "engagement", label: "Boost Engagement", emoji: "💬" },
-  { value: "sales", label: "Drive Sales / Leads", emoji: "💰" },
-  { value: "brand", label: "Build Brand Authority", emoji: "🏆" },
-  { value: "awareness", label: "Increase Awareness", emoji: "🌍" },
+  { value: "followers", label: "Follower Growth" },
+  { value: "engagement", label: "Engagement & Saves" },
+  { value: "sales", label: "Sales & Leads" },
+  { value: "brand", label: "Brand Authority" },
+  { value: "awareness", label: "Reach & Discovery" },
 ];
 
 const STRUGGLES = [
-  { value: "bio", label: "Bio doesn't convert", emoji: "📝" },
-  { value: "reach", label: "Low reach / visibility", emoji: "👀" },
-  { value: "engagement", label: "No engagement", emoji: "😶" },
-  { value: "positioning", label: "Unclear positioning", emoji: "🎯" },
-  { value: "consistency", label: "Inconsistent posting", emoji: "📅" },
-  { value: "growth", label: "Growth plateaued", emoji: "📊" },
+  { value: "bio", label: "Low Bio Conversion" },
+  { value: "reach", label: "Declining Reach" },
+  { value: "engagement", label: "Low Engagement" },
+  { value: "positioning", label: "Unclear Positioning" },
+  { value: "consistency", label: "Content Execution" },
 ];
 
 const CONTENT_FORMATS = [
-  { value: "Reels", emoji: "🎥" },
-  { value: "Carousels", emoji: "📱" },
-  { value: "Stories", emoji: "⏳" },
-  { value: "Static Posts", emoji: "🖼️" },
-  { value: "Lives", emoji: "🔴" },
-  { value: "Highlights", emoji: "⭐" },
+  { value: "Reels", label: "Reels" },
+  { value: "Carousels", label: "Carousels" },
+  { value: "Stories", label: "Stories" },
+  { value: "Static Posts", label: "Static Posts" },
+  { value: "Highlights", label: "Highlights" },
 ];
 
 export default function DiagnosticIntake({
@@ -104,7 +102,7 @@ export default function DiagnosticIntake({
   return (
     <main>
       <section className="section" style={{ paddingTop: "var(--space-12)" }}>
-        <div className="container" style={{ maxWidth: "640px" }}>
+        <div className="container" style={{ maxWidth: "580px" }}>
           {/* Stepper */}
           <div className="stepper">
             {Array.from({ length: totalSteps }, (_, i) => (
@@ -129,7 +127,6 @@ export default function DiagnosticIntake({
             ))}
           </div>
 
-          {/* Diagnosing handle */}
           <div
             style={{
               textAlign: "center",
@@ -140,7 +137,7 @@ export default function DiagnosticIntake({
               className="hero-badge"
               style={{ fontSize: "0.75rem" }}
             >
-              Diagnosing @{data.handle}
+              Auditing @{data.handle}
             </span>
           </div>
 
@@ -148,13 +145,13 @@ export default function DiagnosticIntake({
           {step === 1 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                What type of account is this?
+                Account Category
               </h2>
               <p
                 className="section-subtitle"
                 style={{ textAlign: "center" }}
               >
-                This helps us tailor the audit to your specific needs.
+                Select your primary profile structure.
               </p>
               <div className="chip-group" style={{ justifyContent: "center" }}>
                 {ACCOUNT_TYPES.map((type) => (
@@ -166,7 +163,6 @@ export default function DiagnosticIntake({
                     }`}
                     onClick={() => updateField("accountType", type.value)}
                   >
-                    <span className="chip-emoji">{type.emoji}</span>
                     {type.label}
                   </button>
                 ))}
@@ -178,13 +174,13 @@ export default function DiagnosticIntake({
           {step === 2 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                Who are you trying to reach?
+                Target Audience & Bio
               </h2>
               <p
                 className="section-subtitle"
                 style={{ textAlign: "center" }}
               >
-                Describe your ideal audience in a few words.
+                Specify who you serve and paste current bio.
               </p>
 
               <div className="form-group">
@@ -195,7 +191,7 @@ export default function DiagnosticIntake({
                   id="target-audience"
                   className="form-input"
                   type="text"
-                  placeholder="e.g. Women 25-35 interested in fitness, SaaS founders, Gen-Z fashion lovers"
+                  placeholder="e.g. Founders, athletes, designer brand shoppers"
                   value={data.targetAudience}
                   onChange={(e) =>
                     updateField("targetAudience", e.target.value)
@@ -205,18 +201,18 @@ export default function DiagnosticIntake({
 
               <div className="form-group">
                 <label className="form-label" htmlFor="current-bio">
-                  Your Current Bio{" "}
+                  Current Bio{" "}
                   <span style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}>
-                    (paste it here, or leave blank)
+                    (optional)
                   </span>
                 </label>
                 <textarea
                   id="current-bio"
                   className="form-input form-textarea"
-                  placeholder="Paste your current Instagram bio here..."
+                  placeholder="Paste existing bio here..."
                   value={data.currentBio}
                   onChange={(e) => updateField("currentBio", e.target.value)}
-                  rows={4}
+                  rows={3}
                 />
               </div>
             </div>
@@ -226,17 +222,17 @@ export default function DiagnosticIntake({
           {step === 3 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                What&apos;s your primary goal?
+                Primary Objective
               </h2>
               <p
                 className="section-subtitle"
                 style={{ textAlign: "center" }}
               >
-                Pick the one goal that matters most right now.
+                Select main growth focus.
               </p>
               <div
                 className="chip-group"
-                style={{ justifyContent: "center", marginBottom: "var(--space-8)" }}
+                style={{ justifyContent: "center", marginBottom: "var(--space-6)" }}
               >
                 {GOALS.map((goal) => (
                   <button
@@ -247,7 +243,6 @@ export default function DiagnosticIntake({
                     }`}
                     onClick={() => updateField("primaryGoal", goal.value)}
                   >
-                    <span className="chip-emoji">{goal.emoji}</span>
                     {goal.label}
                   </button>
                 ))}
@@ -257,18 +252,12 @@ export default function DiagnosticIntake({
                 className="section-title"
                 style={{
                   textAlign: "center",
-                  fontSize: "1.125rem",
+                  fontSize: "1rem",
                   marginBottom: "var(--space-2)",
                 }}
               >
-                What&apos;s your biggest struggle?
+                Primary Bottleneck
               </h3>
-              <p
-                className="section-subtitle"
-                style={{ textAlign: "center" }}
-              >
-                Optional — helps us prioritize recommendations.
-              </p>
               <div className="chip-group" style={{ justifyContent: "center" }}>
                 {STRUGGLES.map((item) => (
                   <button
@@ -279,7 +268,6 @@ export default function DiagnosticIntake({
                     }`}
                     onClick={() => updateField("currentStruggle", item.value)}
                   >
-                    <span className="chip-emoji">{item.emoji}</span>
                     {item.label}
                   </button>
                 ))}
@@ -291,13 +279,13 @@ export default function DiagnosticIntake({
           {step === 4 && (
             <div className="animate-fade-in-up">
               <h2 className="section-title" style={{ textAlign: "center" }}>
-                What content formats do you use?
+                Active Formats
               </h2>
               <p
                 className="section-subtitle"
                 style={{ textAlign: "center" }}
               >
-                Select all that apply — this impacts your content strategy score.
+                Select current distribution formats.
               </p>
               <div className="chip-group" style={{ justifyContent: "center" }}>
                 {CONTENT_FORMATS.map((format) => (
@@ -309,8 +297,7 @@ export default function DiagnosticIntake({
                     }`}
                     onClick={() => toggleContentFormat(format.value)}
                   >
-                    <span className="chip-emoji">{format.emoji}</span>
-                    {format.value}
+                    {format.label}
                   </button>
                 ))}
               </div>
@@ -322,7 +309,7 @@ export default function DiagnosticIntake({
             style={{
               display: "flex",
               justifyContent: "space-between",
-              marginTop: "var(--space-10)",
+              marginTop: "var(--space-8)",
             }}
           >
             <button
@@ -330,7 +317,7 @@ export default function DiagnosticIntake({
               className="btn btn-outline"
               onClick={handleBack}
             >
-              ← Back
+              Back
             </button>
             <button
               type="button"
@@ -338,9 +325,7 @@ export default function DiagnosticIntake({
               disabled={!canProceed()}
               onClick={handleNext}
             >
-              {step === totalSteps
-                ? "🩺 Start Comprehensive Diagnosis"
-                : "Continue →"}
+              {step === totalSteps ? "Generate Audit" : "Continue"}
             </button>
           </div>
         </div>
